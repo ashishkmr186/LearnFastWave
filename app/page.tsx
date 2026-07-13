@@ -1,3 +1,6 @@
+"use client";
+
+import * as React from "react";
 import {
   BookOpen,
   Brain,
@@ -16,6 +19,10 @@ import {
 } from "lucide-react";
 import { UpgradeCard } from "@/components/upgrade-card";
 import type { ReactNode } from "react";
+import { UploadModal } from "@/components/upload/UploadModal";
+import { ProcessingScreen } from "@/components/upload/ProcessingScreen";
+import { AddUrlModal } from "@/components/url/AddUrlModal";
+import { UrlProcessingScreen } from "@/components/url/UrlProcessingScreen";
 
 const recentNotes = [
   { label: "Note 1", icon: BookOpen, tone: "bg-[#F0EEFF] text-[#6C63FF]" },
@@ -70,6 +77,14 @@ const toolbarItems = [
 ];
 
 export default function Home() {
+  const [isUploadModalOpen, setIsUploadModalOpen] = React.useState(false);
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = React.useState(false);
+
+  const [isUrlModalOpen, setIsUrlModalOpen] = React.useState(false);
+  const [selectedUrl, setSelectedUrl] = React.useState<string>("");
+  const [isUrlProcessing, setIsUrlProcessing] = React.useState(false);
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#F8F9FC] font-[Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',sans-serif] text-[#1F2937]">
       <div className="flex min-h-screen gap-6 p-6">
@@ -129,32 +144,80 @@ export default function Home() {
           <div className="absolute left-12 top-10 h-36 w-36 rounded-full bg-[#F0EEFF]/70 blur-3xl" />
           <div className="absolute right-20 top-28 h-44 w-44 rounded-full bg-[#EAF9F7]/80 blur-3xl" />
 
-          <div className="relative flex flex-1 items-center justify-center px-12 pb-[150px] pt-12">
-            <section className="mx-auto flex max-w-[760px] flex-col items-center text-center">
-              <SoftIllustration />
+          {isProcessing && selectedFile ? (
+            <ProcessingScreen
+              fileName={selectedFile.name}
+              onComplete={() => {
+                setIsProcessing(false);
+                setSelectedFile(null);
+              }}
+            />
+          ) : isUrlProcessing && selectedUrl ? (
+            <UrlProcessingScreen
+              url={selectedUrl}
+              onComplete={() => {
+                setIsUrlProcessing(false);
+                setSelectedUrl("");
+              }}
+            />
+          ) : (
+            <>
+              <div className="relative flex flex-1 items-center justify-center px-12 pb-[150px] pt-12">
+                <section className="mx-auto flex max-w-[760px] flex-col items-center text-center">
+                  <SoftIllustration />
 
-              <h2 className="mt-9 text-[32px] font-bold leading-tight tracking-normal text-[#1F2937]">
-                Your learning journey starts here ✨
-              </h2>
-              <p className="mt-4 max-w-[680px] text-[15px] leading-7 text-[#6B7280]">
-                Upload a file or paste a URL to generate AI notes, explain
-                concepts using the Feynman technique, remember important topics,
-                and test yourself with quizzes and flashcards.
-              </p>
+                  <h2 className="mt-9 text-[32px] font-bold leading-tight tracking-normal text-[#1F2937]">
+                    Your learning journey starts here ✨
+                  </h2>
+                  <p className="mt-4 max-w-[680px] text-[15px] leading-7 text-[#6B7280]">
+                    Upload a file or paste a URL to generate AI notes, explain
+                    concepts using the Feynman technique, remember important topics,
+                    and test yourself with quizzes and flashcards.
+                  </p>
+                </section>
+              </div>
 
-
-            </section>
-          </div>
-
-          <div className="absolute bottom-6 left-1/2 h-[140px] w-[calc(100%-64px)] max-w-[1180px] -translate-x-1/2 rounded-[28px] border border-[#E8EAF2] bg-white/82 px-5 py-4 backdrop-blur-xl">
-            <div className="grid h-full grid-cols-7 gap-2">
-              {toolbarItems.map((item) => (
-                <ToolbarItem key={item.title} {...item} />
-              ))}
-            </div>
-          </div>
+              <div className="absolute bottom-6 left-1/2 h-[140px] w-[calc(100%-64px)] max-w-[1180px] -translate-x-1/2 rounded-[28px] border border-[#E8EAF2] bg-white/82 px-5 py-4 backdrop-blur-xl">
+                <div className="grid h-full grid-cols-7 gap-2">
+                  {toolbarItems.map((item) => (
+                    <ToolbarItem
+                      key={item.title}
+                      {...item}
+                      onClick={
+                        item.title === "Upload File"
+                          ? () => setIsUploadModalOpen(true)
+                          : item.title === "Add URL"
+                          ? () => setIsUrlModalOpen(true)
+                          : undefined
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </section>
       </div>
+
+      <UploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onUploadStart={(file) => {
+          setSelectedFile(file);
+          setIsUploadModalOpen(false);
+          setIsProcessing(true);
+        }}
+      />
+
+      <AddUrlModal
+        isOpen={isUrlModalOpen}
+        onClose={() => setIsUrlModalOpen(false)}
+        onAnalyzeStart={(url) => {
+          setSelectedUrl(url);
+          setIsUrlModalOpen(false);
+          setIsUrlProcessing(true);
+        }}
+      />
     </main>
   );
 }
@@ -206,16 +269,21 @@ function ToolbarItem({
   subtitle,
   icon: Icon,
   tone,
+  onClick,
 }: {
   title: string;
   subtitle: string;
   icon: LucideIcon;
   tone: string;
+  onClick?: () => void;
 }) {
   return (
-    <button className="group flex min-w-0 cursor-pointer flex-col items-center justify-center rounded-[22px] border border-transparent text-center transition duration-200 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:border-[#E8EAF2] hover:bg-[#F8F9FC]">
+    <button
+      onClick={onClick}
+      className="group flex min-w-0 cursor-pointer flex-col items-center justify-center rounded-[22px] border border-transparent text-center transition duration-200 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:border-[#E8EAF2] hover:bg-[#F8F9FC]"
+    >
       <span
-        className={`mb-2 grid h-12 w-12 place-items-center rounded-full transition duration-200 ease-out group-hover:rotate-[5deg] ${tone}`}
+        className={`mb-2 grid h-12 w-12 place-items-center rounded-full transition duration-200 ease-out ${tone}`}
       >
         <Icon size={21} strokeWidth={2.2} />
       </span>
