@@ -24,12 +24,15 @@ import { ProcessingScreen } from "@/components/upload/ProcessingScreen";
 import { AddUrlModal } from "@/components/url/AddUrlModal";
 import { UrlProcessingScreen } from "@/components/url/UrlProcessingScreen";
 
-const recentNotes = [
-  { label: "Note 1", icon: BookOpen, tone: "bg-[#F0EEFF] text-[#6C63FF]" },
-  { label: "Note 2", icon: BookOpen, tone: "bg-[#EDF7FF] text-[#5798E8]" },
-  { label: "Note 3", icon: BookOpen, tone: "bg-[#EDF9F1] text-[#56C271]" },
-  { label: "Note 4", icon: BookOpen, tone: "bg-[#FFF6E3] text-[#F6B73C]" },
-];
+interface Note {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  tone: string;
+  completionPercentage: number;
+  source: "file" | "url";
+  createdAt: Date;
+}
 
 const toolbarItems = [
   {
@@ -80,10 +83,47 @@ export default function Home() {
   const [isUploadModalOpen, setIsUploadModalOpen] = React.useState(false);
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const [processingNoteId, setProcessingNoteId] = React.useState<string | null>(null);
 
   const [isUrlModalOpen, setIsUrlModalOpen] = React.useState(false);
   const [selectedUrl, setSelectedUrl] = React.useState<string>("");
   const [isUrlProcessing, setIsUrlProcessing] = React.useState(false);
+  const [processingUrlNoteId, setProcessingUrlNoteId] = React.useState<string | null>(null);
+
+  const [notes, setNotes] = React.useState<Note[]>([]);
+
+  const toneColors = [
+    "bg-[#F0EEFF] text-[#6C63FF]",
+    "bg-[#EDF7FF] text-[#5798E8]",
+    "bg-[#EDF9F1] text-[#56C271]",
+    "bg-[#FFF6E3] text-[#F6B73C]",
+  ];
+
+  const addNote = (name: string, source: "file" | "url"): string => {
+    const id = Date.now().toString();
+    const newNote: Note = {
+      id,
+      label: name,
+      icon: BookOpen,
+      tone: toneColors[notes.length % toneColors.length],
+      completionPercentage: 0,
+      source,
+      createdAt: new Date(),
+    };
+    setNotes((prev) => [newNote, ...prev]);
+    return id;
+  };
+
+  const updateNoteProgress = (noteId: string, percentage: number) => {
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === noteId ? { ...note, completionPercentage: percentage } : note
+      )
+    );
+  };
+
+  const activeNotes = notes.filter((n) => n.completionPercentage < 100);
+  const completedNotes = notes.filter((n) => n.completionPercentage === 100);
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#F8F9FC] font-[Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',sans-serif] text-[#1F2937]">
@@ -104,11 +144,47 @@ export default function Home() {
           </header>
 
           <nav className="space-y-7">
-            <SidebarGroup label="RECENT NOTES">
-              {recentNotes.map((item) => (
-                <SidebarItem key={item.label} {...item} />
-              ))}
-            </SidebarGroup>
+            {notes.length === 0 ? (
+              <div className="rounded-[16px] border border-dashed border-[#E8EAF2] bg-[#FBFCFF] px-4 py-8 text-center">
+                <BookOpen size={32} className="mx-auto mb-3 text-[#D1D5DB]" />
+                <p className="text-[14px] font-medium text-[#9AA1AF]">
+                  No notes yet
+                </p>
+                <p className="mt-1 text-[13px] text-[#D1D5DB]">
+                  Upload a file or add a URL to get started
+                </p>
+              </div>
+            ) : (
+              <>
+                {activeNotes.length > 0 && (
+                  <SidebarGroup label="IN PROGRESS">
+                    {activeNotes.map((note) => (
+                      <SidebarItem
+                        key={note.id}
+                        label={note.label}
+                        icon={note.icon}
+                        tone={note.tone}
+                        completionPercentage={note.completionPercentage}
+                      />
+                    ))}
+                  </SidebarGroup>
+                )}
+
+                {completedNotes.length > 0 && (
+                  <SidebarGroup label="COMPLETED">
+                    {completedNotes.map((note) => (
+                      <SidebarItem
+                        key={note.id}
+                        label={note.label}
+                        icon={note.icon}
+                        tone={note.tone}
+                        completionPercentage={100}
+                      />
+                    ))}
+                  </SidebarGroup>
+                )}
+              </>
+            )}
 
             <SidebarGroup label="Previous Notes" hideLabel>
               <SidebarItem
@@ -117,7 +193,6 @@ export default function Home() {
                 tone="bg-[#F2F4F8] text-[#6B7280]"
               />
             </SidebarGroup>
-
           </nav>
 
           <div className="mt-auto pb-4">
@@ -144,20 +219,30 @@ export default function Home() {
           <div className="absolute left-12 top-10 h-36 w-36 rounded-full bg-[#F0EEFF]/70 blur-3xl" />
           <div className="absolute right-20 top-28 h-44 w-44 rounded-full bg-[#EAF9F7]/80 blur-3xl" />
 
-          {isProcessing && selectedFile ? (
+          {isProcessing && selectedFile && processingNoteId ? (
             <ProcessingScreen
               fileName={selectedFile.name}
               onComplete={() => {
+                updateNoteProgress(processingNoteId, 100);
                 setIsProcessing(false);
                 setSelectedFile(null);
+                setProcessingNoteId(null);
+              }}
+              onProgressUpdate={(progress) => {
+                updateNoteProgress(processingNoteId, progress);
               }}
             />
-          ) : isUrlProcessing && selectedUrl ? (
+          ) : isUrlProcessing && selectedUrl && processingUrlNoteId ? (
             <UrlProcessingScreen
               url={selectedUrl}
               onComplete={() => {
+                updateNoteProgress(processingUrlNoteId, 100);
                 setIsUrlProcessing(false);
                 setSelectedUrl("");
+                setProcessingUrlNoteId(null);
+              }}
+              onProgressUpdate={(progress) => {
+                updateNoteProgress(processingUrlNoteId, progress);
               }}
             />
           ) : (
@@ -203,7 +288,10 @@ export default function Home() {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onUploadStart={(file) => {
+          const noteName = file.name.replace(/\.[^/.]+$/, "");
+          const noteId = addNote(noteName, "file");
           setSelectedFile(file);
+          setProcessingNoteId(noteId);
           setIsUploadModalOpen(false);
           setIsProcessing(true);
         }}
@@ -213,7 +301,10 @@ export default function Home() {
         isOpen={isUrlModalOpen}
         onClose={() => setIsUrlModalOpen(false)}
         onAnalyzeStart={(url) => {
+          const urlName = new URL(url).hostname.replace("www.", "");
+          const noteId = addNote(urlName, "url");
           setSelectedUrl(url);
+          setProcessingUrlNoteId(noteId);
           setIsUrlModalOpen(false);
           setIsUrlProcessing(true);
         }}
@@ -247,10 +338,12 @@ function SidebarItem({
   label,
   icon: Icon,
   tone,
+  completionPercentage,
 }: {
   label: string;
   icon: LucideIcon;
   tone: string;
+  completionPercentage?: number;
 }) {
   return (
     <button className="group flex w-full cursor-pointer items-center gap-3 rounded-[18px] border border-transparent px-3 py-2.5 text-left text-[15px] font-semibold text-[#1F2937] transition duration-200 ease-out hover:border-[#E8EAF2] hover:bg-[#F8F9FC]">
@@ -259,7 +352,12 @@ function SidebarItem({
       >
         <Icon size={18} />
       </span>
-      {label}
+      <span className="flex-1 truncate">{label}</span>
+      {completionPercentage !== undefined && (
+        <span className="text-[12px] font-medium text-[#6B7280]">
+          {completionPercentage}%
+        </span>
+      )}
     </button>
   );
 }
