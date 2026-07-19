@@ -10,9 +10,10 @@ import { cn } from "@/lib/utils";
 interface ProcessingScreenProps {
   fileName: string;
   onComplete: () => void;
+  onProgressUpdate?: (progress: number) => void;
 }
 
-export function ProcessingScreen({ fileName, onComplete }: ProcessingScreenProps) {
+export function ProcessingScreen({ fileName, onComplete, onProgressUpdate }: ProcessingScreenProps) {
   const [progress, setProgress] = React.useState(0);
   const [isDone, setIsDone] = React.useState(false);
 
@@ -42,13 +43,15 @@ export function ProcessingScreen({ fileName, onComplete }: ProcessingScreenProps
 
     const timer = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(timer);
-          // Show the completion screen after a tiny visual pause
-          setTimeout(() => setIsDone(true), 300);
-          return 100;
+        const next = Math.min(100, prev + increment);
+        if (onProgressUpdate) {
+          onProgressUpdate(Math.round(next));
         }
-        return Math.min(100, prev + increment);
+        if (next >= 100) {
+          clearInterval(timer);
+          setTimeout(() => setIsDone(true), 300);
+        }
+        return next;
       });
     }, intervalTime);
 

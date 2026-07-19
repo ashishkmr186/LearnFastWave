@@ -9,9 +9,10 @@ import { UploadProgress } from "@/components/upload/UploadProgress";
 interface UrlProcessingScreenProps {
   url: string;
   onComplete: () => void;
+  onProgressUpdate?: (progress: number) => void;
 }
 
-export function UrlProcessingScreen({ url, onComplete }: UrlProcessingScreenProps) {
+export function UrlProcessingScreen({ url, onComplete, onProgressUpdate }: UrlProcessingScreenProps) {
   const [progress, setProgress] = React.useState(0);
   const [isDone, setIsDone] = React.useState(false);
 
@@ -54,12 +55,15 @@ export function UrlProcessingScreen({ url, onComplete }: UrlProcessingScreenProp
 
     const timer = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) {
+        const next = Math.min(100, prev + increment);
+        if (onProgressUpdate) {
+          onProgressUpdate(Math.round(next));
+        }
+        if (next >= 100) {
           clearInterval(timer);
           setTimeout(() => setIsDone(true), 300);
-          return 100;
         }
-        return Math.min(100, prev + increment);
+        return next;
       });
     }, intervalTime);
 
